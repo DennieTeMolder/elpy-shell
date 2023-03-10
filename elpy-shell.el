@@ -1,9 +1,10 @@
-;;; elpy-shell.el --- Interactive Python support for elpy -*- lexical-binding: t -*-
+;;; elpy-shell.el --- Better interactive Python programming -*- lexical-binding: t -*-
 ;;
 ;; Copyright (C) 2012-2019  Jorgen Schaefer
 ;;
 ;; Author: Jorgen Schaefer <contact@jorgenschaefer.de>, Rainer Gemulla <rgemulla@gmx.de>, Gaby Launay <gaby.launay@protonmail.com>
-;; URL: https://github.com/jorgenschaefer/elpy
+;; Maintainer: Dennie te Molder
+;; URL: https://github.com/DennieTeMolder/elpy-shell
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License
@@ -20,7 +21,7 @@
 ;;
 ;;; Commentary:
 ;;
-;; Adds support for interactive Python to elpy
+;; Ports interactive Python support from elpy
 ;;
 ;;; Code:
 
@@ -29,19 +30,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;;; User customization
-
-(defcustom elpy-dedicated-shells nil
-  "Non-nil if Elpy should use dedicated shells.
-
-Elpy can use a unique Python shell for all buffers and support
-manually started dedicated shells. Setting this option to non-nil
-force the creation of dedicated shells for each buffers."
-  :type 'boolean
-  :group 'elpy)
-(make-obsolete-variable 'elpy-dedicated-shells
-                        "Dedicated shells are no longer supported by Elpy.
-You can use `(add-hook 'elpy-mode-hook (lambda () (elpy-shell-toggle-dedicated-shell 1)))' to achieve the same result."
-                        "1.17.0")
 
 (defcustom elpy-shell-display-buffer-after-send nil ;
   "Whether to display the Python shell after sending something to it."
@@ -57,19 +45,6 @@ You can use `(add-hook 'elpy-mode-hook (lambda () (elpy-shell-toggle-dedicated-s
                  (const :tag "When shell not visible" when-shell-not-visible)
                  (const :tag "Always" t))
   :group 'elpy)
-
-(defcustom elpy-shell-capture-last-multiline-output t
-  "Whether to capture the output of the last Python statement when sending multiple statements to the Python shell.
-
-  If nil, no output is captured (nor echoed in the shell) when
-  sending multiple statements. This is the default behavior of
-  python.el. If non-nil and the last statement is an expression,
-  captures its output so that it is echoed in the shell."
-  :type 'boolean
-  :group 'elpy)
-(make-obsolete-variable 'elpy-shell-capture-last-multiline-output
-                        "The last multiline output is now always captured."
-                        "February 2019")
 
 (defcustom elpy-shell-echo-input t
   "Whether to echo input sent to the Python shell as input in the
@@ -114,17 +89,6 @@ this option to be taken into account."
                  (const :tag "Current directory" current-directory)
                  (string :tag "Specific directory"))
   :group 'elpy)
-
-(defcustom elpy-shell-use-project-root t
-  "Whether to use project root as default directory when starting a Python shells.
-
-The project root is determined using `elpy-project-root`. If this
-variable is set to nil, the current directory is used instead."
-  :type 'boolean
-  :group 'elpy)
-(make-obsolete-variable 'elpy-shell-use-project-root
-                        'elpy-shell-starting-directory
-                        "1.32.0")
 
 (defcustom elpy-shell-cell-boundary-regexp
   (concat "^\\(?:"
@@ -190,6 +154,157 @@ creates a new Python process."
   :type 'boolean
   :group 'elpy)
 
+;;;;;;;;;;;;;;;;;;
+;;; Projects
+
+(defcustom elpy-project-root nil
+  "The root of the project the current buffer is in.
+
+There is normally no use in setting this variable directly, as
+Elpy tries to detect the project root automatically. See
+`elpy-project-root-finder-functions' for a way of influencing
+this.
+
+Setting this variable globally will override Elpy's automatic
+project detection facilities entirely.
+
+Alternatively, you can set this in file- or directory-local
+variables using \\[add-file-local-variable] or
+\\[add-dir-local-variable].
+
+Do not use this variable in Emacs Lisp programs. Instead, call
+the `elpy-project-root' function. It will do the right thing."
+  :type 'directory
+  :safe 'file-directory-p
+  :group 'elpy)
+(make-variable-buffer-local 'elpy-project-root)
+
+(defcustom elpy-project-root-finder-functions
+  '(elpy-project-find-projectile-root
+    elpy-project-find-python-root
+    elpy-project-find-git-root
+    elpy-project-find-hg-root
+    elpy-project-find-svn-root)
+  "List of functions to ask for the current project root.
+
+These will be checked in turn. The first directory found is used."
+  :type '(set (const :tag "Projectile project root"
+                     elpy-project-find-projectile-root)
+              (const :tag "Python project (setup.py, setup.cfg)"
+                     elpy-project-find-python-root)
+              (const :tag "Git repository root (.git)"
+                     elpy-project-find-git-root)
+              (const :tag "Mercurial project root (.hg)"
+                     elpy-project-find-hg-root)
+              (const :tag "Subversion project root (.svn)"
+                     elpy-project-find-svn-root)
+              (const :tag "Django project root (manage.py, django-admin.py)"
+                     elpy-project-find-django-root))
+  :group 'elpy)
+
+(defun elpy-project-root ()
+  "Return the root of the current buffer's project.
+
+This can very well be nil if the current file is not part of a
+project.
+
+See `elpy-project-root-finder-functions' for a way to configure
+how the project root is found. You can also set the variable
+`elpy-project-root' in, for example, .dir-locals.el to override
+this."
+  (unless elpy-project-root
+    (setq elpy-project-root
+          (run-hook-with-args-until-success
+           'elpy-project-root-finder-functions)))
+  elpy-project-root)
+
+(defun elpy-set-project-root (new-root)
+  "Set the Elpy project root to NEW-ROOT."
+  (interactive "DNew project root: ")
+  (setq elpy-project-root new-root))
+
+(defun elpy-project-find-python-root ()
+  "Return the current Python project root, if any.
+
+This is marked with 'setup.py', 'setup.cfg' or 'pyproject.toml'."
+  (or (locate-dominating-file default-directory "setup.py")
+      (locate-dominating-file default-directory "setup.cfg")
+      (locate-dominating-file default-directory "pyproject.toml")))
+
+(defun elpy-project-find-git-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory ".git"))
+
+(defun elpy-project-find-hg-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory ".hg"))
+
+(defun elpy-project-find-svn-root ()
+  "Return the current git repository root, if any."
+  (locate-dominating-file default-directory
+                          (lambda (dir)
+                            (and (file-directory-p (format "%s/.svn" dir))
+                                 (not (file-directory-p (format "%s/../.svn"
+                                                                dir)))))))
+
+(defun elpy-project-find-projectile-root ()
+  "Return the current project root according to projectile."
+  ;; `ignore-errors' both to avoid an unbound function error as well
+  ;; as ignore projectile saying there is no project root here.
+  (ignore-errors
+    (projectile-project-root)))
+
+
+;;;;;;;;;;;;;;;;;;
+;;; Nav commands
+
+(defun elpy-nav-forward-block ()
+  "Move to the next line indented like point.
+
+This will skip over lines and statements with different
+indentation levels."
+  (interactive "^")
+  (let ((indent (current-column))
+        (start (point))
+        (cur nil))
+    (when (/= (% indent python-indent-offset)
+              0)
+      (setq indent (* (1+ (/ indent python-indent-offset))
+                      python-indent-offset)))
+    (python-nav-forward-statement)
+    (while (and (< indent (current-indentation))
+                (not (eobp)))
+      (when (equal (point) cur)
+        (error "Statement does not finish"))
+      (setq cur (point))
+      (python-nav-forward-statement))
+    (when (< (current-indentation)
+             indent)
+      (goto-char start))))
+
+(defun elpy-nav-backward-block ()
+  "Move to the previous line indented like point.
+
+This will skip over lines and statements with different
+indentation levels."
+  (interactive "^")
+  (let ((indent (current-column))
+        (start (point))
+        (cur nil))
+    (when (/= (% indent python-indent-offset)
+              0)
+      (setq indent (* (1+ (/ indent python-indent-offset))
+                      python-indent-offset)))
+    (python-nav-backward-statement)
+    (while (and (< indent (current-indentation))
+                (not (bobp)))
+      (when (equal (point) cur)
+        (error "Statement does not start"))
+      (setq cur (point))
+      (python-nav-backward-statement))
+    (when (< (current-indentation)
+             indent)
+      (goto-char start))))
 
 ;;;;;;;;;;;;;;;;;;
 ;;; Shell commands
@@ -318,7 +433,7 @@ Python process. This allows the process to start up."
         ;; We cannot use `run-python` directly, as it selects the new shell
         ;; buffer. See https://github.com/jorgenschaefer/elpy/issues/1848
         (python-shell-make-comint
-         (python-shell-parse-command)
+         (python-shell-calculate-command)
          (python-shell-get-process-name nil)
          t))
       (when sit (sit-for sit))
@@ -1372,19 +1487,6 @@ region or buffer."
         (remove-overlays (region-beginning) (region-end) 'elpy-breakpoint t)
       (remove-overlays (point-min) (point-max) 'elpy-breakpoint t))))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;
-;; Deprecated functions
-
-(defun elpy-use-ipython (&optional _ipython)
-  "Deprecated; see https://elpy.readthedocs.io/en/latest/ide.html#interpreter-setup"
-  (error "elpy-use-ipython is deprecated; see https://elpy.readthedocs.io/en/latest/ide.html#interpreter-setup"))
-(make-obsolete 'elpy-use-ipython nil "Jan 2017")
-
-(defun elpy-use-cpython (&optional _cpython)
-  "Deprecated; see https://elpy.readthedocs.io/en/latest/ide.html#interpreter-setup"
-  (error "elpy-use-cpython is deprecated; see https://elpy.readthedocs.io/en/latest/ide.html#interpreter-setup"))
-(make-obsolete 'elpy-use-cpython nil "Jan 2017")
 
 (provide 'elpy-shell)
 ;;; elpy-shell.el ends here
