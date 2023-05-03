@@ -319,6 +319,7 @@ indentation levels."
                   'visible))
 
 ;; better name would be pop-to-shell
+;;;###autoload
 (defun elpy-shell-switch-to-shell ()
   "Switch to inferior Python process buffer."
   (interactive)
@@ -330,6 +331,7 @@ indentation levels."
   (interactive)
   (pop-to-buffer elpy--shell-last-py-buffer))
 
+;;;###autoload
 (defun elpy-shell-switch-to-shell-in-current-window ()
   (interactive)
   (setq elpy--shell-last-py-buffer (buffer-name))
@@ -832,6 +834,7 @@ Prepends a continuation promt if PREPEND-CONT-PROMPT is set."
   (advice-remove 'python-shell-send-string
                  'elpy-shell--python-shell-send-string-echo-advice))
 
+;;;###autoload
 (defun elpy-shell-send-file (file-name &optional process temp-file-name
                                          delete msg)
   "Like `python-shell-send-file' but evaluates last expression separately.
@@ -1038,6 +1041,7 @@ to the first top-level statement below point."
 ;;;;;;;;;;;;;;;;;
 ;;; Send commands
 
+;;;###autoload
 (defun elpy-shell-send-statement-and-step ()
   "Send current or next statement to Python shell and step.
 
@@ -1060,6 +1064,7 @@ corresponding statement."
           (python-shell-buffer-substring beg end)))))
     (python-nav-forward-statement)))
 
+;;;###autoload
 (defun elpy-shell-send-top-statement-and-step ()
   "Send the current or next top-level statement to the Python shell and step.
 
@@ -1081,6 +1086,7 @@ line and sends the corresponding top-level statement."
       (setq mark-active nil)
       (python-nav-forward-statement))))
 
+;;;###autoload
 (defun elpy-shell-send-defun-and-step ()
   "Send the function definition that contains the current line
 to the Python shell and steps.
@@ -1091,6 +1097,7 @@ See `elpy-shell--nav-beginning-of-def' for details."
       (elpy-shell-send-statement-and-step)
     (message "There is no function definition that includes the current line.")))
 
+;;;###autoload
 (defun elpy-shell-send-defclass-and-step ()
   "Send the class definition that contains the current line to
 the Python shell and steps.
@@ -1101,6 +1108,7 @@ See `elpy-shell--nav-beginning-of-def' for details."
       (elpy-shell-send-statement-and-step)
     (message "There is no class definition that includes the current line.")))
 
+;;;###autoload
 (defun elpy-shell-send-group-and-step ()
   "Send the current or next group of top-level statements to the Python shell and step.
 
@@ -1145,6 +1153,7 @@ below point and send the group around this statement."
       (goto-char (point-max)))
     (setq mark-active nil)))
 
+;;;###autoload
 (defun elpy-shell-send-codecell-and-step ()
   "Send the current code cell to the Python shell and step.
 
@@ -1180,6 +1189,7 @@ variables `elpy-shell-cell-boundary-regexp' and
           (python-nav-forward-statement))
       (message "Not in a codecell."))))
 
+;;;###autoload
 (defun elpy-shell-send-region-or-buffer-and-step (&optional arg)
   "Send the active region or the buffer to the Python shell and step.
 
@@ -1256,6 +1266,7 @@ of code. With prefix argument, this code is executed."
       (message (concat "Removed if __name__ == '__main__' construct, "
                        "use a prefix argument to evaluate.")))))
 
+;;;###autoload
 (defun elpy-shell-send-buffer-and-step (&optional arg)
   "Send entire buffer to Python shell.
 
