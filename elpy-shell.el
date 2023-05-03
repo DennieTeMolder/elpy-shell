@@ -1267,6 +1267,19 @@ of code. With prefix argument, this code is executed."
                        "use a prefix argument to evaluate.")))))
 
 ;;;###autoload
+(defun elpy-shell-send-buffer (&optional arg)
+  "Send entire buffer to Pyton shell.
+
+In Emacs 24.3 and later, without prefix argument, this will
+escape the Python idiom of if __name__ == '__main__' to be false
+to avoid accidental execution of code. With prefix argument, this
+code is executed."
+  (interactive "P")
+  (save-mark-and-excursion
+    (deactivate-mark)
+    (elpy-shell-send-region-or-buffer-and-step arg)))
+
+;;;###autoload
 (defun elpy-shell-send-buffer-and-step (&optional arg)
   "Send entire buffer to Python shell.
 
