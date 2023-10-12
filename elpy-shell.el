@@ -392,7 +392,7 @@ If ASK-FOR-EACH-ONE is non-nil, ask before killing each python process."
       (message "No python shell to close")))))
 
 (defun elpy-executable-find-remote (command)
-  "Emulate 'executable-find' REMOTE.
+  "Emulate 'executable-find' COMMAND with REMOTE as t.
 Since Emacs 27, 'executable-find' accepts the 2nd argument.
 REMOVE THIS when Elpy no longer supports Emacs 26."
   (if (cdr (help-function-arglist 'executable-find)) ; 27+
@@ -419,7 +419,7 @@ Python process. This allows the process to start up."
     (if proc
         proc
       (unless (elpy-executable-find-remote python-shell-interpreter)
-        (error "Python shell interpreter `%s' cannot be found. Please set `python-shell-interpreter' to a valid python binary."
+        (error "Python shell interpreter `%s' cannot be found. Please set `python-shell-interpreter' to a valid python binary!"
                python-shell-interpreter))
       (let ((default-directory
               (cond ((eq elpy-shell-starting-directory 'project-root)
