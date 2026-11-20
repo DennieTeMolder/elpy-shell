@@ -634,27 +634,19 @@ Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
 (defun elpy-shell--python-shell-send-string-echo-advice (string &optional _process _msg)
   "Advice to enable echoing of input in the Python shell."
   (interactive)
-  (let* ((append-string ; strip setup code from Elpy
-          (if (string-match "import sys, codecs, os, ast;__open = codecs.open.*$" string)
+  (let* ((append-string ; Strip encoding information
+          (if (string-match "^# -\\*- coding: utf-8 -\\*-\n*$" string)
               (replace-match "" nil nil string)
             string))
-         (append-string ; strip setup code from python.el
-          (if (string-match "import codecs, os;__pyfile = codecs.open(.*;exec(compile(__code, .*$" append-string)
-              (replace-match "" nil nil append-string)
-            append-string))
-         (append-string ; here too
-          (if (string-match "^# -\\*- coding: utf-8 -\\*-\n*$" append-string)
-              (replace-match "" nil nil append-string)
-            append-string))
-         (append-string ; Strip "if True:", added when sending regions
-          (if (string-match "^if True:$" append-string)
-              (replace-match "" nil nil append-string)
-            append-string))
-         (append-string ; strip newlines from beginning and white space from end
+         (append-string ; Strip newlines from beginning and white space from end
           (string-trim-right
            (if (string-match "\\`\n+" append-string)
                (replace-match "" nil nil append-string)
              append-string)))
+         (append-string ; Strip "if True:", added when sending regions
+          (if (string-prefix-p "if True:\n" append-string)
+              (substring append-string 9)
+            append-string))
          (append-string ; Dedent region
           (elpy-shell--string-without-indentation append-string))
          (head (elpy-shell--string-head-lines append-string elpy-shell-echo-input-lines-head))
