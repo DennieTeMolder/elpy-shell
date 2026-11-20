@@ -43,16 +43,6 @@
   :type 'boolean
   :group 'elpy)
 
-(defcustom elpy-shell-echo-output 'when-shell-not-visible
-  "Whether to echo the Python shell output in the echo area after input has been sent to the shell.
-
-  Possible choices are nil (=never), `when-shell-not-visible', or
-  t (=always)."
-  :type '(choice (const :tag "Never" nil)
-                 (const :tag "When shell not visible" when-shell-not-visible)
-                 (const :tag "Always" t))
-  :group 'elpy)
-
 (defcustom elpy-shell-echo-input t
   "Whether to echo input sent to the Python shell as input in the
 shell buffer.
@@ -489,12 +479,6 @@ Return non-nil is the shell is running and not busy, nil otherwise."
 ;; Echoing
 
 (defmacro elpy-shell--with-maybe-echo (body)
-  `(elpy-shell--with-maybe-echo-output
-    (elpy-shell--with-maybe-echo-input
-     ,body)))
-
-
-(defmacro elpy-shell--with-maybe-echo-input (body)
   "Run BODY so that it adheres `elpy-shell-echo-input' and `elpy-shell-display-buffer'."
   `(progn
      (elpy-shell--enable-echo)
@@ -505,62 +489,6 @@ Return non-nil is the shell is running and not busy, nil otherwise."
            (cl-flet ((elpy-shell-display-buffer () ()))
              (progn ,body)))
        (elpy-shell--disable-echo))))
-
-(defvar-local elpy-shell--capture-output nil
-  "Non-nil when the Python shell should capture output for display in the echo area.")
-
-(defvar-local elpy-shell--captured-output nil
-  "Current captured output of the Python shell.")
-
-(defmacro elpy-shell--with-maybe-echo-output (body)
-  "Run BODY and grab shell output according to `elpy-shell-echo-output'."
-  `(cl-letf (((symbol-function 'python-shell-send-file)
-              (if elpy-shell-echo-output
-                  (symbol-function 'elpy-shell-send-file)
-                (symbol-function 'python-shell-send-file))))
-     (let* ((process (elpy-shell--ensure-shell-running))
-            (process-buf (process-buffer process))
-            (shell-visible (or elpy-shell-display-buffer-after-send
-                               (get-buffer-window process-buf))))
-       (with-current-buffer process-buf
-         (setq-local elpy-shell--capture-output
-                     (and elpy-shell-echo-output
-                          (or (not (eq elpy-shell-echo-output 'when-shell-not-visible))
-                              (not shell-visible)))))
-       (progn ,body))))
-
-(defun elpy-shell--enable-output-filter ()
-    (add-hook 'comint-output-filter-functions 'elpy-shell--output-filter nil t))
-
-(defun elpy-shell--output-filter (string)
-  "Filter used in `elpy-shell--with-maybe-echo-output' to grab output.
-
-No actual filtering is performed. STRING is the output received
-to this point from the process. If `elpy-shell--capture-output'
-is set, captures and messages shell output in the echo area (once
-complete). Otherwise, does nothing."
-  ;; capture the output and message it when complete
-  (when elpy-shell--capture-output
-    ;; remember the new output
-    (setq-local elpy-shell--captured-output
-                (concat elpy-shell--captured-output (ansi-color-filter-apply string)))
-
-    ;; Output ends when `elpy-shell--captured-output' contains
-    ;; the prompt attached at the end of it. If so, message it.
-    (when (python-shell-comint-end-of-output-p elpy-shell--captured-output)
-      (let ((output (substring
-                     elpy-shell--captured-output
-                     0 (match-beginning 0)))
-            (message-log-max))
-        (if (string-match-p "Traceback (most recent call last):" output)
-            (message "Exception during evaluation.")
-          (if (string-empty-p output)
-              (message "No output was produced.")
-            (message "%s" (replace-regexp-in-string "\n\\'" "" output))))
-        (setq-local elpy-shell--captured-output nil))))
-
-  ;; return input unmodified
-  string)
 
 (defun elpy-shell--insert-and-font-lock (string face &optional no-font-lock)
   "Inject STRING into the Python shell buffer."
@@ -676,56 +604,7 @@ Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
                  'elpy-shell--python-shell-send-string-echo-advice))
 
 ;;;###autoload
-(defun elpy-shell-send-file (file-name &optional process temp-file-name
-                                         delete msg)
-  "Like `python-shell-send-file' but evaluates last expression separately.
-
-See `python-shell-send-file' for a description of the
-arguments. This function differs in that it breaks up the
-Python code in FILE-NAME into statements. If the last statement
-is a Python expression, it is evaluated separately in 'eval'
-mode. This way, the interactive python shell can capture (and
-print) the output of the last expression."
-  (interactive
-   (list
-    (read-file-name "File to send: ")   ; file-name
-    nil                                 ; process
-    nil                                 ; temp-file-name
-    nil                                 ; delete
-    t))                                 ; msg
-  (let* ((process (or process (python-shell-get-process-or-error msg)))
-         (encoding (with-temp-buffer
-                     (insert-file-contents
-                      (or temp-file-name file-name))
-                     (python-info-encoding)))
-         (file-name (expand-file-name
-                     (or (file-remote-p file-name 'localname)
-                         file-name)))
-         (temp-file-name (when temp-file-name
-                           (expand-file-name
-                            (or (file-remote-p temp-file-name 'localname)
-                                temp-file-name)))))
-    (python-shell-send-string
-     (format
-      (concat
-       "import sys, codecs, os, ast;"
-       "__open = codecs.open if sys.version_info.major < 3 else open;"
-       "__pyfile = __open('''%s''', encoding='''%s''');"
-       "__code = __pyfile.read().encode('''%s''');"
-       "__pyfile.close();"
-       (when (and delete temp-file-name)
-         (format "os.remove('''%s''');" temp-file-name))
-       "__block = ast.parse(__code, '''%s''', mode='exec');"
-       ;; Has to ba a oneliner, which make conditionnal statements a bit complicated...
-       " __block.body = (__block.body if not isinstance(__block.body[0], ast.If) else __block.body if not isinstance(__block.body[0].test, ast.Name) else __block.body if not __block.body[0].test.id == 'True' else __block.body[0].body) if sys.version_info[0] < 3 else (__block.body if not isinstance(__block.body[0], ast.If) else __block.body if not isinstance(__block.body[0].test, ast.NameConstant) else __block.body if not __block.body[0].test.value is True else __block.body[0].body);"
-       "__last = __block.body[-1];" ;; the last statement
-       "__isexpr = isinstance(__last,ast.Expr);" ;; is it an expression?
-       "_ = __block.body.pop() if __isexpr else None;" ;; if so, remove it
-       "exec(compile(__block, '''%s''', mode='exec'));" ;; execute everything else
-       "eval(compile(ast.Expression(__last.value), '''%s''', mode='eval')) if __isexpr else None" ;; if it was an expression, it has been removed; now evaluate it
-       )
-      (or temp-file-name file-name) encoding encoding file-name file-name file-name)
-     process)))
+(defalias 'elpy-shell-send-file 'python-shell-send-file)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Navigation commands for sending
