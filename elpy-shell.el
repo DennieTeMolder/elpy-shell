@@ -635,7 +635,7 @@ Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
   "Advice to enable echoing of input in the Python shell."
   (interactive)
   (let* ((append-string ; strip setup code from Elpy
-          (if (string-match "import sys, codecs, os, ast;__pyfile = codecs.open.*$" string)
+          (if (string-match "import sys, codecs, os, ast;__open = codecs.open.*$" string)
               (replace-match "" nil nil string)
             string))
          (append-string ; strip setup code from python.el
@@ -717,7 +717,8 @@ print) the output of the last expression."
      (format
       (concat
        "import sys, codecs, os, ast;"
-       "__pyfile = codecs.open('''%s''', encoding='''%s''');"
+       "__open = codecs.open if sys.version_info.major < 3 else open;"
+       "__pyfile = __open('''%s''', encoding='''%s''');"
        "__code = __pyfile.read().encode('''%s''');"
        "__pyfile.close();"
        (when (and delete temp-file-name)
