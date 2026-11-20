@@ -89,7 +89,7 @@ Can be `project-root' (default) to use the current project root,
 string indicating a specific path.
 
 \\<elpy-mode-map>
-Running python interpeters need to be restarted (with
+Running python interpreters need to be restarted (with
 \\[elpy-shell-kill] followed by \\[elpy-shell-switch-to-shell]) for
 this option to be taken into account."
   :type '(choice (const :tag "Project root" project-root)
@@ -489,12 +489,9 @@ Return non-nil is the shell is running and not busy, nil otherwise."
 ;; Echoing
 
 (defmacro elpy-shell--with-maybe-echo (body)
-  ;; Echoing is apparently buggy for emacs < 25...
-  (if (<= 25 emacs-major-version)
-      `(elpy-shell--with-maybe-echo-output
-        (elpy-shell--with-maybe-echo-input
-         ,body))
-    body))
+  `(elpy-shell--with-maybe-echo-output
+    (elpy-shell--with-maybe-echo-input
+     ,body)))
 
 
 (defmacro elpy-shell--with-maybe-echo-input (body)
@@ -577,7 +574,7 @@ complete). Otherwise, does nothing."
   "Append the given STRING to the output of the Python shell buffer.
 
 Unless NO-FONT-LOCK is set, formats STRING as shell input.
-Prepends a continuation promt if PREPEND-CONT-PROMPT is set."
+Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
   (unless (string-empty-p string)
   (let* ((process (elpy-shell-get-or-create-process))
          (process-buf (process-buffer process))
@@ -1207,9 +1204,7 @@ switches focus to Python shell buffer."
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; Debugging features
 
-(when (version<= "25" emacs-version)
-
-  (defun elpy-pdb--refresh-breakpoints (lines)
+(defun elpy-pdb--refresh-breakpoints (lines)
     "Add new breakpoints at lines LINES of the current buffer."
     ;; Forget old breakpoints
     (python-shell-send-string-no-output "import bdb as __bdb; __bdb.Breakpoint.bplist={}; __bdb.Breakpoint.next=1;__bdb.Breakpoint.bpbynumber=[None]")
@@ -1361,7 +1356,7 @@ region or buffer."
     "Remove the breakpoints in the current region or buffer."
     (if (use-region-p)
         (remove-overlays (region-beginning) (region-end) 'elpy-breakpoint t)
-      (remove-overlays (point-min) (point-max) 'elpy-breakpoint t))))
+      (remove-overlays (point-min) (point-max) 'elpy-breakpoint t)))
 
 (provide 'elpy-shell)
 ;;; elpy-shell.el ends here
