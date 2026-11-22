@@ -7,7 +7,7 @@
 ;; URL: https://github.com/DennieTeMolder/elpy-shell
 ;; Version: 1.35.0
 ;; Keywords: Python, IDE, Languages, Tools
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "28.1"))
 ;;
 ;; This program is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU General Public License
@@ -196,7 +196,7 @@ If KILL-BUFF is non-nil, also kill the associated buffer."
      (shell-buffer
       (delete-process shell-buffer)
       (when kill-buff
-	(kill-buffer shell-buffer))
+        (kill-buffer shell-buffer))
       (message "Killed %s shell" shell-buffer))
      (t
       (message "No python shell to kill")))))
@@ -210,28 +210,28 @@ If ASK-FOR-EACH-ONE is non-nil, ask before killing each python process."
   (let ((python-buffer-list ()))
     ;; Get active python shell buffers and kill inactive ones (if asked)
     (cl-loop for buffer being the buffers do
-	  (when (and (buffer-name buffer)
-		     (string-match (rx bol "*Python" (opt "[" (* (not (any "]"))) "]") "*" eol)
-				   (buffer-name buffer)))
-	    (if (get-buffer-process buffer)
-		(push buffer python-buffer-list)
-	      (when kill-buffers
-		(kill-buffer buffer)))))
+          (when (and (buffer-name buffer)
+                     (string-match (rx bol "*Python" (opt "[" (* (not (any "]"))) "]") "*" eol)
+                                   (buffer-name buffer)))
+            (if (get-buffer-process buffer)
+                (push buffer python-buffer-list)
+              (when kill-buffers
+                (kill-buffer buffer)))))
     (cond
      ;; Ask for each buffers and kill
      ((and python-buffer-list ask-for-each-one)
       (cl-loop for buffer in python-buffer-list do
-	    (when (y-or-n-p (format "Kill %s ? " buffer))
-		(delete-process buffer)
-		(when kill-buffers
-		  (kill-buffer buffer)))))
+            (when (y-or-n-p (format "Kill %s ? " buffer))
+                (delete-process buffer)
+                (when kill-buffers
+                  (kill-buffer buffer)))))
      ;; Ask and kill every buffers
      (python-buffer-list
       (if (y-or-n-p (format "Kill %s python shells ? " (length python-buffer-list)))
-	  (cl-loop for buffer in python-buffer-list do
-		(delete-process buffer)
-		(when kill-buffers
-		  (kill-buffer buffer)))))
+          (cl-loop for buffer in python-buffer-list do
+                (delete-process buffer)
+                (when kill-buffers
+                  (kill-buffer buffer)))))
      ;; No shell to close
      (t
       (message "No python shell to close")))))
@@ -244,11 +244,11 @@ REMOVE THIS when Elpy no longer supports Emacs 26."
       (executable-find command t)
     (if (file-remote-p default-directory)
         (let ((res (locate-file ; code from files.el
-	            command
-	            (mapcar
-	             (lambda (x) (concat (file-remote-p default-directory) x))
-	             (exec-path))
-	            exec-suffixes 'file-executable-p)))
+                    command
+                    (mapcar
+                     (lambda (x) (concat (file-remote-p default-directory) x))
+                     (exec-path))
+                    exec-suffixes 'file-executable-p)))
           (when (stringp res) (file-local-name res)))
       (executable-find command)))) ; local search
 
@@ -332,7 +332,7 @@ shell (often \"*Python*\" shell)."
          (candidates (remove current-shell-name
                            (delete-dups
                             (append (list (buffer-name) "Global")
-				    shell-names))))
+                                    shell-names))))
          (prompt (format "Shell name (current: %s): " current-shell-name))
          (shell-name (or shell-name (completing-read prompt candidates))))
     (if (string= shell-name "Global")
@@ -562,35 +562,36 @@ Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
 (defun elpy-shell--python-shell-send-string-echo-advice (string &optional _process _msg)
   "Advice to enable echoing of input in the Python shell."
   (interactive)
-  (let* ((append-string ; Strip encoding information
-          (if (string-match "^# -\\*- coding: utf-8 -\\*-\n*$" string)
-              (replace-match "" nil nil string)
-            string))
-         (append-string ; Strip newlines from beginning and white space from end
-          (string-trim-right
-           (if (string-match "\\`\n+" append-string)
-               (replace-match "" nil nil append-string)
-             append-string)))
-         (append-string ; Strip "if True:", added when sending regions
-          (if (string-prefix-p "if True:\n" append-string)
-              (substring append-string 9)
-            append-string))
-         (append-string ; Dedent region
-          (elpy-shell--string-without-indentation append-string))
-         (head (elpy-shell--string-head-lines append-string elpy-shell-echo-input-lines-head))
-         (tail (elpy-shell--string-tail-lines append-string elpy-shell-echo-input-lines-tail))
-         (append-string (if (> (length append-string) (+ (length head) (length tail)))
-                            (concat head "...\n" tail)
-                          append-string)))
-
-    ;; append the modified string to the shell output; prepend a newline for
-    ;; multi-line strings
-    (if elpy-shell-echo-input-cont-prompt
-        (elpy-shell--append-to-shell-output append-string nil t)
-      (elpy-shell--append-to-shell-output
-       (concat (if (string-match "\n" append-string) "\n" "")
-               append-string
-               "\n")))))
+  ;; Ignore string of it starts with Python.el (Emacs28+) setup code
+  (unless (string-match-p "[ \t\n]*def __?PYTHON_EL_" string)
+    (let* ((append-string ; Strip encoding information
+            (if (string-match "^# -\\*- coding: utf-8 -\\*-\n*$" string)
+                (replace-match "" nil nil string)
+              string))
+           (append-string ; Strip newlines from beginning and white space from end
+            (string-trim-right
+             (if (string-match "\\`\n+" append-string)
+                 (replace-match "" nil nil append-string)
+               append-string)))
+           (append-string ; Strip "if True:", added when sending regions
+            (if (string-prefix-p "if True:\n" append-string)
+                (substring append-string 9)
+              append-string))
+           (append-string ; Dedent region
+            (elpy-shell--string-without-indentation append-string))
+           (head (elpy-shell--string-head-lines append-string elpy-shell-echo-input-lines-head))
+           (tail (elpy-shell--string-tail-lines append-string elpy-shell-echo-input-lines-tail))
+           (append-string (if (> (length append-string) (+ (length head) (length tail)))
+                              (concat head "...\n" tail)
+                            append-string)))
+      ;; append the modified string to the shell output; prepend a newline for
+      ;; multi-line strings
+      (if elpy-shell-echo-input-cont-prompt
+          (elpy-shell--append-to-shell-output append-string nil t)
+        (elpy-shell--append-to-shell-output
+         (concat (if (string-match "\n" append-string) "\n" "")
+                 append-string
+                 "\n"))))))
 
 (defun elpy-shell--enable-echo ()
   "Enable input echoing when `elpy-shell-echo-input' is set."
