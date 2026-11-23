@@ -560,10 +560,10 @@ Prepends a continuation prompt if PREPEND-CONT-PROMPT is set."
       string)))
 
 (defun elpy-shell--python-shell-send-string-echo-advice (string &optional _process _msg)
-  "Advice to enable echoing of input in the Python shell."
+  "Advice to enable echoing of input STRING to the Python shell."
   (interactive)
   ;; Ignore string of it starts with Python.el (Emacs28+) setup code
-  (unless (string-match-p "[ \t\n]*def __?PYTHON_EL_" string)
+  (unless (string-match-p "\\`[ \t\n]*def __?PYTHON_EL_" string)
     (let* ((append-string ; Strip encoding information
             (if (string-match "^# -\\*- coding: utf-8 -\\*-\n*$" string)
                 (replace-match "" nil nil string)
